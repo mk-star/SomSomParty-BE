@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
@@ -27,6 +28,7 @@ public class RedisConfig {
     }
 
     @Bean
+    @Primary
     public RedisConnectionFactory redisConnectionFactory() {
         return new LettuceConnectionFactory(redisHost, redisPort);
     }
@@ -36,11 +38,9 @@ public class RedisConfig {
         RedisTemplate<String, Object> redisTemplate = new RedisTemplate<>();
         redisTemplate.setConnectionFactory(redisConnectionFactory());
 
-        // Key는 String 타입, 값은 JSON 직렬화 방식으로 설정
         redisTemplate.setKeySerializer(new StringRedisSerializer());
         redisTemplate.setHashKeySerializer(new StringRedisSerializer());
 
-        // Jackson2JsonRedisSerializer에 ObjectMapper 전달
         Jackson2JsonRedisSerializer<Object> serializer = new Jackson2JsonRedisSerializer<>(Object.class);
         serializer.setObjectMapper(objectMapper);
         redisTemplate.setValueSerializer(serializer);
@@ -50,7 +50,17 @@ public class RedisConfig {
     }
 
     @Bean
-    public ReactiveRedisTemplate<String, String> reactiveRedisTemplate(ReactiveRedisConnectionFactory factory) {
-        return new ReactiveRedisTemplate<>(factory, RedisSerializationContext.string());
+    public ReactiveRedisConnectionFactory reactiveRedisConnectionFactory() {
+        return new LettuceConnectionFactory(redisHost, redisPort);
+    }
+
+
+    @Bean
+    public ReactiveRedisTemplate<String, String> reactiveRedisTemplate(ReactiveRedisConnectionFactory reactiveRedisConnectionFactory) {
+        RedisSerializationContext<String, String> context = RedisSerializationContext
+                .<String, String>newSerializationContext(new StringRedisSerializer())
+                .value(new StringRedisSerializer())
+                .build();
+        return new ReactiveRedisTemplate<>(reactiveRedisConnectionFactory, context);
     }
 }
