@@ -7,20 +7,20 @@ import io.awspring.cloud.sqs.annotation.SqsListener;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import io.awspring.cloud.sqs.listener.acknowledgement.Acknowledgement;
+import org.redisson.api.RFuture;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.data.domain.Range;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.SignalType;
 import reactor.util.function.Tuples;
 
 import java.time.Instant;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @Slf4j
@@ -29,7 +29,6 @@ public class UserQueueService {
     private final ReactiveRedisTemplate<String, String> reactiveRedisTemplate;
     private final RedissonClient redissonClient;
     private final SqsSender sqsSender;
-    private static final ConcurrentHashMap<String, AtomicInteger> invocationCounts = new ConcurrentHashMap<>();
 
     // 사용자 대기 queue의 key
     private final String USER_QUEUE_WAIT_KEY = "users:queue:%s:wait";
@@ -43,10 +42,10 @@ public class UserQueueService {
     // 현재 본인의 순위를 return 함
     public Mono<Long> registerWaitQueue(String queue, String email) {
         // 대기열에 사용자 존재 여부
-        Mono<Boolean> existsInWaitQueue = isExistInWaitOrProceed(queue, email,  "wait");
+        Mono<Boolean> existsInWaitQueue = isExistInWaitOrProceed(queue, "wait", email);
 
         // 대기 완료 열 사용자 존재 여부
-        Mono<Boolean> existsInProceedQueue = isExistInWaitOrProceed(queue, email,  "proceed");
+        Mono<Boolean> existsInProceedQueue = isExistInWaitOrProceed(queue, "proceed", email);
 
         long unixTimestamp = Instant.now().toEpochMilli(); // 현재 시간
         return Mono.zip(existsInWaitQueue, existsInProceedQueue)
@@ -70,68 +69,6 @@ public class UserQueueService {
                             })
                             .map(i -> i >= 0 ? i + 1 : i)
                             .doOnSuccess(result -> log.info("사용자 {}가 {}번째로 대기열 등록 성공", email, result));
-                });
-    }
-
-    // 대기열에서 대기 중인 사용자를 꺼낸 후 , 대기 완료 queue에 insert
-    // 두 번째 매개변수의 count 수 만큼의 유저의 수를 대기열에 먼저 들어온 순으로 pop 한다음 proccedQueue에 insert
-    // insert된 유저 count를 return
-    // 동기적 처리
-    public Mono<Long> allowUser(final String queue, final Long count) {
-        return Mono.fromCallable(() -> {
-            // 호출 횟수 추적
-            String key = "allowUser-" + queue;
-            int currentInvocationCount = invocationCounts
-                    .computeIfAbsent(key, k -> new AtomicInteger(0))
-                    .incrementAndGet();
-
-            log.info("{}번째 allowUser 호출: queue={}, count={}", currentInvocationCount, queue, count);
-
-            // 대기열에서 유저를 꺼낸다
-            Set<String> members = reactiveRedisTemplate.opsForZSet().range(USER_QUEUE_WAIT_KEY.formatted(queue), 0, count - 1);  // count만큼 유저를 꺼내기
-
-            if (members == null || members.isEmpty()) {
-                return 0L;  // 대기열에 꺼낼 유저가 없다면 0 반환
-            } else {
-                reactiveRedisTemplate.opsForZSet().remove(USER_QUEUE_WAIT_KEY.formatted(queue), members.toArray());
-            }
-
-            members.forEach(member -> {
-                log.info("{}번째 allowUser 처리 중: member={}", currentInvocationCount, member);
-                // 각 멤버를 대기 완료 큐에 추가
-                reactiveRedisTemplate.opsForZSet().add(USER_QUEUE_PROCEED_KEY.formatted(queue), member, Instant.now().getEpochSecond());
-            });
-            // 처리된 유저 수를 반환
-            return (long) members.size();
-        });
-    }
-
-    // 분산락 적용
-    public Mono<Long> allowUserWithLock(final String queue, final Long count) {
-        String lockKey = "LOCK:" + queue;
-        RLock rLock = redissonClient.getLock(lockKey);
-
-        return Mono.fromCallable(() -> {
-                    // 락 획득 대기 시간 및 유지 시간 설정
-                    boolean isLocked = rLock.tryLock(3, 5, TimeUnit.SECONDS);
-                    if (!isLocked) {
-                        throw new CustomException(ErrorCode.LOCK_ACQUISITION_FAILED);
-                    }
-                    log.info("락 시작");
-                    return isLocked;
-                })
-                .flatMap(ignored -> {
-                    // 락을 획득한 후 allowUser() 비즈니스 로직 실행
-                    return allowUser(queue, count)
-                            .doOnSuccess(result -> log.info("비즈니스 로직 완료: {} members allowed", result))
-                            .doOnError(error -> log.error("비즈니스 로직 중 오류 발생", error));
-                })
-                .doFinally(signalType -> {
-                    // 비즈니스 로직 완료 후 락 해제
-                    if (rLock.isHeldByCurrentThread()) {
-                        log.info("락 해제");
-                        rLock.unlock();
-                    }
                 });
     }
 
@@ -184,6 +121,54 @@ public class UserQueueService {
                     }
                 })
                 .subscribe();
+    }
+
+    // 대기열에서 대기 중인 사용자를 꺼낸 후 , 대기 완료 queue에 insert
+    // 두 번째 매개변수의 count 수 만큼의 유저의 수를 대기열에 먼저 들어온 순으로 pop 한다음 proccedQueue에 insert
+    // insert된 유저 count를 return
+    public Mono<Long> allowUser(String queue, Long count) {
+        return reactiveRedisTemplate.opsForZSet()
+                .range(USER_QUEUE_WAIT_KEY.formatted(queue), Range.closed(0L, count - 1))
+                .collectList()
+                .flatMap(users -> {
+                    if (users.isEmpty()) {
+                        return Mono.just(0L);
+                    }
+
+                    String[] membersArray = users.toArray(new String[0]);
+                    // 대기열에서 제거 & 대기 완료열에 추가
+                    return reactiveRedisTemplate.opsForZSet()
+                            .remove(USER_QUEUE_WAIT_KEY.formatted(queue), (Object[]) membersArray)
+                            .thenMany(Flux.fromIterable(users))
+                            .flatMap(user -> reactiveRedisTemplate.opsForZSet()
+                                    .add(USER_QUEUE_PROCEED_KEY.formatted(queue), user, Instant.now().toEpochMilli()))
+                            .then(Mono.just((long) users.size()));
+                });
+    }
+
+    // 분산락 적용
+    public Mono<Long> allowUserWithLock(String queue, Long count) {
+        String lockKey = "LOCK:" + queue;
+        RLock rLock = redissonClient.getLock(lockKey);
+
+        RFuture<Boolean> rFuture = rLock.tryLockAsync(3, 5, TimeUnit.SECONDS);
+        return Mono.fromFuture(rFuture.toCompletableFuture())
+                .flatMap(isLocked -> {
+                    if (!isLocked) {
+                        return Mono.error(new CustomException(ErrorCode.LOCK_ACQUISITION_FAILED));
+                    }
+                    log.info("락 획득 성공: {}", lockKey);
+                    return allowUser(queue, count)
+                            .doFinally(signal -> {
+                                log.info("락 해제 시도: {}", lockKey);
+                                rLock.unlockAsync()
+                                        .exceptionally(ex -> {
+                                            log.error("락 해제 실패", ex);
+                                            return null;
+                                        });
+                            });
+                });
+
     }
 
     // 페이지 이탈시 대기열에서 삭제
