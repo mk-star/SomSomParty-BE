@@ -29,7 +29,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 @RequiredArgsConstructor
 public class UserQueueService {
     private final ReactiveRedisTemplate<String, String> reactiveRedisTemplate;
-    private final RedisTemplate<String, String> redisTemplate;
     private final RedissonClient redissonClient;
     private final SqsSender sqsSender;
     private static final ConcurrentHashMap<String, AtomicInteger> invocationCounts = new ConcurrentHashMap<>();
@@ -43,22 +42,36 @@ public class UserQueueService {
     // 유저 대기열 등록
     // redis의 sorted set을 대기열로 사용 ( key : user PK , value : unix timestamp)
     // 현재 본인의 순위를 return 함
-    public Mono<Long> registerWaitQueue(final String queue, final String email) {
-        var unixTimestamp = Instant.now().getEpochSecond(); // 현재 시간
-        return reactiveRedisTemplate.opsForZSet().add(USER_QUEUE_WAIT_KEY.formatted(queue), email, unixTimestamp)
-                .filter(i -> i) // add를 성공하면 true, 실패하면 false를 return
-                .switchIfEmpty(Mono.error(new CustomException(ErrorCode.QUEUE_ALREADY_REGISTERED_USER))) // false -> 유저가 이미 queue에 등록 된 경우
-                .flatMap(i -> { // true ->
-                    // SQS에
-                    String messageContent = email + "가 " + queue + " 대기열로 입장함";
-                    // 동기적으로 메시지를 전송하고 결과를 받음
-                    SendResult<String> result = sqsSender.send(messageContent);
-                    log.info("메시지 전송 결과: {}", result);
+    public Mono<Long> registerWaitQueue(String queue, String email) {
+        // 대기열에 사용자 존재 여부
+        Mono<Boolean> existsInWaitQueue = isAllowed(queue, email,  "wait");
 
-                    // 대기열에서 유저의 rank 조회
-                    return reactiveRedisTemplate.opsForZSet().rank(USER_QUEUE_WAIT_KEY.formatted(queue), email);
-                })
-                .map(i -> i >= 0 ? i + 1 : i); // rank에 1 더해서 리턴(rank는 0부터 시작)
+        // 대기 완료 열 사용자 존재 여부
+        Mono<Boolean> existsInProceedQueue = isAllowed(queue, email,  "proceed");
+
+        long unixTimestamp = Instant.now().toEpochMilli(); // 현재 시간
+        return Mono.zip(existsInWaitQueue, existsInProceedQueue)
+                .flatMap(tuple -> {
+                    boolean inWait = tuple.getT1();
+                    boolean inProceed = tuple.getT2();
+
+                    if (inWait || inProceed) {
+                        return Mono.error(new CustomException(ErrorCode.QUEUE_ALREADY_REGISTERED_USER));
+                    }
+
+                    return reactiveRedisTemplate.opsForZSet()
+                            .add(USER_QUEUE_WAIT_KEY.formatted(queue), email, unixTimestamp)
+                            .filter(i -> i)
+                            .switchIfEmpty(Mono.error(new CustomException(ErrorCode.QUEUE_ALREADY_REGISTERED_USER)))
+                            .flatMap(i -> {
+                                // 입장 처리 타이밍을 컨트롤하기 위한 단순 트리거 역할
+                                String messageContent = email + "가 " + queue + " 대기열로 입장함";
+                                sqsSender.send(messageContent);
+                                return reactiveRedisTemplate.opsForZSet().rank(USER_QUEUE_WAIT_KEY.formatted(queue), email);
+                            })
+                            .map(i -> i >= 0 ? i + 1 : i)
+                            .doOnSuccess(result -> log.info("{}님 {}번째로 사용자 대기열 등록 성공", email, result));
+                });
     }
 
     // 대기열에서 대기 중인 사용자를 꺼낸 후 , 대기 완료 queue에 insert
@@ -76,18 +89,18 @@ public class UserQueueService {
             log.info("{}번째 allowUser 호출: queue={}, count={}", currentInvocationCount, queue, count);
 
             // 대기열에서 유저를 꺼낸다
-            Set<String> members = redisTemplate.opsForZSet().range(USER_QUEUE_WAIT_KEY.formatted(queue), 0, count - 1);  // count만큼 유저를 꺼내기
+            Set<String> members = reactiveRedisTemplate.opsForZSet().range(USER_QUEUE_WAIT_KEY.formatted(queue), 0, count - 1);  // count만큼 유저를 꺼내기
 
             if (members == null || members.isEmpty()) {
                 return 0L;  // 대기열에 꺼낼 유저가 없다면 0 반환
             } else {
-                redisTemplate.opsForZSet().remove(USER_QUEUE_WAIT_KEY.formatted(queue), members.toArray());
+                reactiveRedisTemplate.opsForZSet().remove(USER_QUEUE_WAIT_KEY.formatted(queue), members.toArray());
             }
 
             members.forEach(member -> {
                 log.info("{}번째 allowUser 처리 중: member={}", currentInvocationCount, member);
                 // 각 멤버를 대기 완료 큐에 추가
-                redisTemplate.opsForZSet().add(USER_QUEUE_PROCEED_KEY.formatted(queue), member, Instant.now().getEpochSecond());
+                reactiveRedisTemplate.opsForZSet().add(USER_QUEUE_PROCEED_KEY.formatted(queue), member, Instant.now().getEpochSecond());
             });
             // 처리된 유저 수를 반환
             return (long) members.size();
@@ -124,20 +137,24 @@ public class UserQueueService {
     }
 
     // 유저의 진입이 허용되었는지 check
-    // id(PK)가 있는지 proceed queue에서 찾음
+    // 유저의 email을 대기 완료열에서 찾음
     // rank()가 0 이상의 값을 반환하면, rank >= 0이 true가 되어 입장이 허용된 상태로 판단,
     // rank()가 null을 반환하면, defaultIfEmpty(-1L)에 의해 -1L이 반환되고, rank >= 0이 false가 되어 입장이 허용되지 않은 상태로 판단
-    public Mono<Boolean> isAllowed(final String queue, final String email) {
+    public Mono<Boolean> isAllowed(String queue, String queueType, String email) {
         log.info("유저의 진입이 허용되었는지 체크");
-        return reactiveRedisTemplate.opsForZSet().rank(USER_QUEUE_PROCEED_KEY.formatted(queue), email)
+
+        String keyType = queueType.equals("wait") ? USER_QUEUE_WAIT_KEY : USER_QUEUE_PROCEED_KEY;
+        return reactiveRedisTemplate.opsForZSet()
+                .rank(keyType.formatted(queue), email)
                 .defaultIfEmpty(-1L) // 아직 대기 완료 대기열에 없다면 -1를 return
                 .map(rank -> rank >= 0); // 있다면 rank를 return
     }
 
-    // 대기열에서 몇 번째 순위인지를 알려주는 함수
-    public Mono<Long> getRank(final String queue, final String email) {
+    // 대기열에서 사용자 순위 조회
+    public Mono<Long> getRank(String queue, String email) {
         log.info("email = {}", email);
-        return reactiveRedisTemplate.opsForZSet().rank(USER_QUEUE_WAIT_KEY.formatted(queue), email)
+        return reactiveRedisTemplate.opsForZSet()
+                .rank(USER_QUEUE_WAIT_KEY.formatted(queue), email)
                 .defaultIfEmpty(-1L) // 대기열에 없다면 -1을 return
                 .map(rank -> rank >= 0 ? rank + 1 : rank)
                 .onErrorReturn(-1L); // 오류 발생 시 -1 반환
