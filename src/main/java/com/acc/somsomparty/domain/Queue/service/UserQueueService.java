@@ -4,14 +4,12 @@ import com.acc.somsomparty.domain.Queue.config.SqsSender;
 import com.acc.somsomparty.global.exception.CustomException;
 import com.acc.somsomparty.global.exception.error.ErrorCode;
 import io.awspring.cloud.sqs.annotation.SqsListener;
-import io.awspring.cloud.sqs.operations.SendResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import io.awspring.cloud.sqs.listener.acknowledgement.Acknowledgement;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
@@ -70,7 +68,7 @@ public class UserQueueService {
                                 return reactiveRedisTemplate.opsForZSet().rank(USER_QUEUE_WAIT_KEY.formatted(queue), email);
                             })
                             .map(i -> i >= 0 ? i + 1 : i)
-                            .doOnSuccess(result -> log.info("{}님 {}번째로 사용자 대기열 등록 성공", email, result));
+                            .doOnSuccess(result -> log.info("사용자 {}가 {}번째로 대기열 등록 성공", email, result));
                 });
     }
 
@@ -152,12 +150,18 @@ public class UserQueueService {
 
     // 대기열에서 사용자 순위 조회
     public Mono<Long> getRank(String queue, String email) {
-        log.info("email = {}", email);
         return reactiveRedisTemplate.opsForZSet()
                 .rank(USER_QUEUE_WAIT_KEY.formatted(queue), email)
                 .defaultIfEmpty(-1L) // 대기열에 없다면 -1을 return
-                .map(rank -> rank >= 0 ? rank + 1 : rank)
-                .onErrorReturn(-1L); // 오류 발생 시 -1 반환
+                .flatMap(rank -> {
+                    if (rank == -1) {
+                        return Mono.error(new CustomException(ErrorCode.USER_NOT_IN_QUEUE));
+                    }
+                    return Mono.just(rank + 1);
+                })
+                .doOnSuccess(rank -> {
+                    log.info("사용자 {}의 순위: {} ", email, rank);
+                });
     }
 
     // 유저를 입장 허용 큐로 이동시킴
