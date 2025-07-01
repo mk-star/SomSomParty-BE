@@ -30,6 +30,7 @@ public class UserQueueService {
     private final RedissonClient redissonClient;
     private final SqsSender sqsSender;
     private static final ConcurrentHashMap<String, AtomicInteger> invocationCounts = new ConcurrentHashMap<>();
+
     // 사용자 대기 queue의 key
     private final String USER_QUEUE_WAIT_KEY = "users:queue:%s:wait";
     // 사용자 대기 queue를 scan 하기 위한 key
@@ -42,10 +43,10 @@ public class UserQueueService {
     // 현재 본인의 순위를 return 함
     public Mono<Long> registerWaitQueue(String queue, String email) {
         // 대기열에 사용자 존재 여부
-        Mono<Boolean> existsInWaitQueue = isAllowed(queue, email,  "wait");
+        Mono<Boolean> existsInWaitQueue = isExistInWaitOrProceed(queue, email,  "wait");
 
         // 대기 완료 열 사용자 존재 여부
-        Mono<Boolean> existsInProceedQueue = isAllowed(queue, email,  "proceed");
+        Mono<Boolean> existsInProceedQueue = isExistInWaitOrProceed(queue, email,  "proceed");
 
         long unixTimestamp = Instant.now().toEpochMilli(); // 현재 시간
         return Mono.zip(existsInWaitQueue, existsInProceedQueue)
@@ -134,13 +135,8 @@ public class UserQueueService {
                 });
     }
 
-    // 유저의 진입이 허용되었는지 check
-    // 유저의 email을 대기 완료열에서 찾음
-    // rank()가 0 이상의 값을 반환하면, rank >= 0이 true가 되어 입장이 허용된 상태로 판단,
-    // rank()가 null을 반환하면, defaultIfEmpty(-1L)에 의해 -1L이 반환되고, rank >= 0이 false가 되어 입장이 허용되지 않은 상태로 판단
-    public Mono<Boolean> isAllowed(String queue, String queueType, String email) {
-        log.info("유저의 진입이 허용되었는지 체크");
-
+    // 대기열 or 대기 완료 열에서 사용자 존재 여부 확인
+    public Mono<Boolean> isExistInWaitOrProceed(String queue, String queueType, String email) {
         String keyType = queueType.equals("wait") ? USER_QUEUE_WAIT_KEY : USER_QUEUE_PROCEED_KEY;
         return reactiveRedisTemplate.opsForZSet()
                 .rank(keyType.formatted(queue), email)
@@ -191,17 +187,11 @@ public class UserQueueService {
     }
 
     // 페이지 이탈시 대기열에서 삭제
-    public Mono<Void> removeUserFromWaitQueue(final String queue, final String email) {
-        log.info("유저 삭제 시도: queue = {}, email = {}", queue, email);
-        return reactiveRedisTemplate.opsForZSet().remove(USER_QUEUE_WAIT_KEY.formatted(queue), email)
-                .doOnSuccess(count -> log.info("삭제된 유저 수: {}", count))
-                .then(); // Mono<Void> 반환
-    }
+    public Mono<Void> removeUserFromQueue(String queue, String queueType, String email) {
+        String keyType = queueType.equals("wait") ? USER_QUEUE_WAIT_KEY : USER_QUEUE_PROCEED_KEY;
 
-    // 타겟 페이지로 이동 시 대기 완료 열에서 삭제
-    public Mono<Void> removeUserFromWaitProceedQueue(final String queue, final String email) {
-        log.info("유저 삭제 시도: queue = {}, email = {}", queue, email);
-        return reactiveRedisTemplate.opsForZSet().remove(USER_QUEUE_PROCEED_KEY.formatted(queue), email)
+        return reactiveRedisTemplate.opsForZSet()
+                .remove(keyType.formatted(queue), email)
                 .doOnSuccess(count -> log.info("삭제된 유저 수: {}", count))
                 .then(); // Mono<Void> 반환
     }
