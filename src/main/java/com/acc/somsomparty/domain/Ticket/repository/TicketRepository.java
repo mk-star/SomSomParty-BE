@@ -11,8 +11,5 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 public interface TicketRepository extends JpaRepository<Ticket, Long> {
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT t FROM Ticket t WHERE t.festival.id = :festivalId AND t.festivalDate = :festivalDate")
-    Optional<Ticket> findByFestivalIdAndFestivalDateWithLock(@Param("festivalId") Long festivalId,
-                                                             @Param("festivalDate") LocalDate festivalDate);
+    Optional<Ticket> findByFestivalIdAndFestivalDate(@Param("festivalId") Long festivalId, @Param("festivalDate") LocalDate festivalDate);
 }
