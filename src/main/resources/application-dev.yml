@@ -12,47 +12,14 @@ spring:
         show_sql: true
         format_sql: true
         dialect: org.hibernate.dialect.MySQLDialect
-  aws:
-    dynamodb:
-      endpoint: http://localhost:8000
-      region: ap-northeast-2
-      access-key: ${AWS_ACCESS_KEY_ID}
-      secret-key: ${AWS_SECRET_ACCESS_KEY}
+  kafka:
+    bootstrap_servers: localhost:9092
+    consumer:
+      auto-offset-reset: earliest
   data:
     redis:
-      #      host: ${elastiCache_endPoint}
-      host: 127.0.0.1
-      port: 6379
-  cloud:
-    aws:
-      queue:
-        region: ${QUEUE_REGION}
-        access-key: ${QUEUE_ACCESS_KEY}
-        secret-key: ${QUEUE_SECRET_KEY}
-      sqs:
-        queue-name: ${SQS_QUEUE_NAME}
-    stack:
-      auto: false
-aws:
-  noti:
-    accessKey: ${NOTI_ACCESS_KEY}
-    secretKey: ${NOTI_SECRET_KEY}
-    region: ${NOTI_REGION}
-    sqs:
-      queue-name: ${NOTI_SQS_QUEUE_NAME}
-      queue-url: ${NOTI_SQS_QUEUE_URL}
-    sns:
-      application-arn: ${NOTI_SNS_APP_ARN}
-
-  auth:
-    cognito:
-      accessKey: ${COGNITO_ACCESS_KEY}
-      secretKey: ${COGNITO_SECRET_KEY}
-      user-pool-id: ${COGNITO_USER_POOL_ID}
-      app-client-id: ${COGNITO_APP_CLIENT_ID}
-      client-secret: ${COGNITO_CLIENT_SECRET}
-      jwks-url: ${COGNITO_JWKS_URL}
-
+      host: localhost
+      port: 6380
 logging:
   level:
     root: INFO

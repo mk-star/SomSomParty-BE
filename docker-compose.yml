@@ -1,19 +1,27 @@
-version: '3.8'
-
 services:
-
-
-  spring-app:
-    image: 084828566517.dkr.ecr.ap-northeast-2.amazonaws.com/somparty:latest
-    restart: always
-    container_name: spring-app
+  redis:
+    image: redis:latest
+    container_name: redis
     ports:
-      - '8080:8080'
-    volumes:
-      - ./application.yml:/app/config/application.yml
-    networks:
-      - app_network
+      - "6380:6379"
+  zookeeper:
+    image: bitnami/zookeeper:latest
+    container_name: zookeeper
+    ports:
+      - "2181:2181"  # Zookeeper는 Kafka를 위한 메타데이터 저장소 역할
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
 
-networks:
-  app_network:
-    driver: bridge
+  kafka:
+    image: bitnami/kafka:3.5.1
+    container_name: kafka
+    ports:
+      - "9092:9092"  # Kafka 브로커가 외부로 노출되는 포트
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181  # Zookeeper 연결 설정
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092  # 내부용 Listener
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092  # 외부용 Listener
+      - ALLOW_PLAINTEXT_LISTENER=yes  # 인증 없이 허용 (개발용)
+      - KAFKA_ENABLE_KRAFT=no  # KRaft 모드 비활성화 → Zookeeper 기반 Kafka 사용
+    depends_on:
+      - zookeeper  # Kafka는 Zookeeper가 먼저 실행되어야 함

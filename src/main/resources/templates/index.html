@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Real-Time Notifications</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+</head>
+<body>
+<h1>Rank</h1>
+<div id="rankDisplay">순위가 표시됩니다</div>
+<button id="enterQueueBtn">입장</button>
+
+<script>
+    const socket = new SockJS('/ws');
+    const stompClient = Stomp.over(socket);
+
+    stompClient.connect({}, () => {
+        const festivalId = '1';
+        const maxSlot = 5;
+
+        fetch(`/festivals/${festivalId}/slots?maxSlot=${maxSlot}`, {
+            method: 'POST',  // 만약 setMaxSlot이 POST 메서드라면 꼭 지정
+        })
+            .then(response => response.text())
+            .then(data => console.log(data))
+            .catch(err => console.error(err));
+
+        document.getElementById('enterQueueBtn').addEventListener('click', () => {
+            // userId 배열 (1~10)
+            const userIds = Array.from({ length: 20 }, (_, i) => (i + 1).toString());
+
+            userIds.forEach(userId => {
+                fetch(`/queues/${festivalId}/waiting-room/users/${userId}`, {
+                    method: 'GET'
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`대기열 등록 실패 (userId: ${userId})`);
+                        }
+                        return response.text();
+                    })
+                    .then(() => {
+                        console.log(`대기열 등록 성공 (userId: ${userId})`);
+
+                        // 모든 유저에 대해 모니터링 시작 요청
+                        if (stompClient.connected) {
+                            stompClient.send(`/app/queue.${festivalId}`, {}, '');
+                        } else {
+                            console.error('STOMP not connected yet');
+                        }
+
+
+                            stompClient.subscribe(`/topic/queue.status.${festivalId}.${userId}`, message => {
+                                const data = JSON.parse(message.body);
+
+                                console.log(`[userId: ${userId}] rank: ${data.rank}`);
+
+                                if (data.rank === -1) {
+                                    stompClient.send(`/app/queue.${festivalId}.leave`, {}, '');
+                                }
+
+                                // 순위 콘솔 로그
+                                console.log(`[userId: ${userId}] rank: ${data.rank}`);
+
+                                if (userId === '10') {
+                                    // 화면에 순위 표시
+                                    const rankDisplay = document.getElementById('rankDisplay');
+                                    if (rankDisplay) {
+                                        if (data.rank === -1) {
+                                            rankDisplay.textContent = "대기열에 없습니다.";
+                                        } else {
+                                            rankDisplay.textContent = `현재 순위: ${data.rank}`;
+                                        }
+                                    }
+                                }
+                            });
+
+                    })
+                    .catch(err => {
+                        console.error(`대기열 등록 오류 (userId: ${userId}):`, err);
+                    });
+            });
+        });
+    });
+</script>
+</body>
+</html>

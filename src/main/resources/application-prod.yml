@@ -1,63 +1,63 @@
-spring:
-  datasource:
-    url: jdbc:mysql://somparty-rds.c1gukyuossno.ap-northeast-2.rds.amazonaws.com:3306/somsomparty
-    username: admin
-    password: somparty
-    driver-class-name: com.mysql.cj.jdbc.Driver
-  jpa:
-    hibernate:
-      ddl-auto: update
-    properties:
-      hibernate:
-        show_sql: true
-        format_sql: true
-        dialect: org.hibernate.dialect.MySQLDialect
-  aws:
-    dynamodb:
-      endpoint: http://dynamodb.ap-northeast-2.amazonaws.com
-      region: ap-northeast-2
-  data:
-    redis:
-      host: somparty-elasticcache.urgh9x.ng.0001.apn2.cache.amazonaws.com
-      port: 6379
-  cloud:
-    aws:
-      region:
-        static: ap-northeast-2
-        credentials:
-          instance-profile: true # IAM 역할 사용
-        stack:
-          auto: false
-      queue:
-        region: ap-northeast-2
-      sqs:
-        queue-name: queue
-  kafka:
-    bootstrap-servers:
-      - b-1.sommsk.0hsy6v.c4.kafka.ap-northeast-2.amazonaws.com:9098
-      - b-2.sommsk.0hsy6v.c4.kafka.ap-northeast-2.amazonaws.com:9098
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.apache.kafka.common.serialization.StringSerializer
-    consumer:
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-    properties:
-      security.protocol: SASL_SSL
-      sasl.mechanism: AWS_MSK_IAM
-      sasl.jaas.config: software.amazon.msk.auth.iam.IAMLoginModule required;
-aws:
-  noti:
-    region: ap-northeast-2
-    sqs:
-      queue-name: noti
-      queue-url: https://sqs.ap-northeast-2.amazonaws.com/084828566517/noti
-    sns:
-      application-arn: arn:aws:sns:ap-northeast-2:084828566517:app/GCM/somsomparty
-
-  auth:
-    cognito:
-      user-pool-id: ap-northeast-2_mPKDxPA6G
-      app-client-id: 5spu1idqiakqb8u3isgs7jotsa
-      client-secret: 1d88f60661q9vja4odh0m3f7kelrr34tk5n25kuv6ut2id05fbpv
-      jwks-url: https://cognito-idp.ap-northeast-2.amazonaws.com/ap-northeast-2_mPKDxPA6G
+#spring:
+#  datasource:
+#    url: jdbc:mysql://somparty-rds.c1gukyuossno.ap-northeast-2.rds.amazonaws.com:3306/somsomparty
+#    username: admin
+#    password: somparty
+#    driver-class-name: com.mysql.cj.jdbc.Driver
+#  jpa:
+#    hibernate:
+#      ddl-auto: update
+#    properties:
+#      hibernate:
+#        show_sql: true
+#        format_sql: true
+#        dialect: org.hibernate.dialect.MySQLDialect
+#  aws:
+#    dynamodb:
+#      endpoint: http://dynamodb.ap-northeast-2.amazonaws.com
+#      region: ap-northeast-2
+#  data:
+#    redis:
+#      host: somparty-elasticcache.urgh9x.ng.0001.apn2.cache.amazonaws.com
+#      port: 6379
+#  cloud:
+#    aws:
+#      region:
+#        static: ap-northeast-2
+#        credentials:
+#          instance-profile: true # IAM 역할 사용
+#        stack:
+#          auto: false
+#      queue:
+#        region: ap-northeast-2
+#      sqs:
+#        queue-name: queue
+#  kafka:
+#    bootstrap-servers:
+#      - b-1.sommsk.0hsy6v.c4.kafka.ap-northeast-2.amazonaws.com:9098
+#      - b-2.sommsk.0hsy6v.c4.kafka.ap-northeast-2.amazonaws.com:9098
+#    producer:
+#      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+#      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+#    consumer:
+#      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+#      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+#    properties:
+#      security.protocol: SASL_SSL
+#      sasl.mechanism: AWS_MSK_IAM
+#      sasl.jaas.config: software.amazon.msk.auth.iam.IAMLoginModule required;
+#aws:
+#  noti:
+#    region: ap-northeast-2
+#    sqs:
+#      queue-name: noti
+#      queue-url: https://sqs.ap-northeast-2.amazonaws.com/084828566517/noti
+#    sns:
+#      application-arn: arn:aws:sns:ap-northeast-2:084828566517:app/GCM/somsomparty
+#
+#  auth:
+#    cognito:
+#      user-pool-id: ap-northeast-2_mPKDxPA6G
+#      app-client-id: 5spu1idqiakqb8u3isgs7jotsa
+#      client-secret: 1d88f60661q9vja4odh0m3f7kelrr34tk5n25kuv6ut2id05fbpv
+#      jwks-url: https://cognito-idp.ap-northeast-2.amazonaws.com/ap-northeast-2_mPKDxPA6G

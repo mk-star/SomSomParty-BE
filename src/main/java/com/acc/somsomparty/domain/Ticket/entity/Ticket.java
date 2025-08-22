@@ -1,7 +1,7 @@
 package com.acc.somsomparty.domain.Ticket.entity;
 
 import com.acc.somsomparty.domain.Festival.entity.Festival;
-import com.acc.somsomparty.domain.Reservation.entity.Reservation;
+//import com.acc.somsomparty.domain.Reservation.entity.Reservation;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
@@ -35,6 +35,6 @@ public class Ticket {
     @Column(name = "left_tickets", nullable = false)
     private Integer leftTickets;
 
-    @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL)
-    private List<Reservation> reservationList = new ArrayList<>();
+//    @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL)
+//    private List<Reservation> reservationList = new ArrayList<>();
 }

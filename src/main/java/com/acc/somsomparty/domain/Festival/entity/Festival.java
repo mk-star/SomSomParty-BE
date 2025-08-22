@@ -1,8 +1,6 @@
 package com.acc.somsomparty.domain.Festival.entity;
 
-import com.acc.somsomparty.domain.Reservation.entity.Reservation;
 import com.acc.somsomparty.domain.Ticket.entity.Ticket;
-import com.acc.somsomparty.domain.chatting.entity.ChatRoom;
 import com.acc.somsomparty.global.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -46,13 +44,6 @@ public class Festival extends BaseEntity {
     @OneToMany(mappedBy = "festival", cascade = CascadeType.ALL)
     private List<Ticket> ticketList = new ArrayList<>();
 
-    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "id")
-    private ChatRoom chatRoom;
-
-    public void addChatRoom(ChatRoom chatRoom) {
-        this.chatRoom = chatRoom;
-    }
     @PrePersist
     @PreUpdate
     private void setLowercaseValues() {

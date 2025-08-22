@@ -32,24 +32,14 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
-	implementation platform('software.amazon.awssdk:bom:2.20.138')
-	implementation 'software.amazon.awssdk:sns'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	implementation 'org.springframework.boot:spring-boot-starter-security'
-	implementation 'software.amazon.awssdk:cognitoidentityprovider:2.20.66'
-	implementation 'com.auth0:jwks-rsa:0.21.0';
-	implementation 'com.auth0:java-jwt:4.4.0';
 	// 카프카
-	implementation 'org.springframework.kafka:spring-kafka:2.9.0'
-	implementation 'software.amazon.msk:aws-msk-iam-auth:2.0.3'
-	//DynamoDB
-	implementation platform('software.amazon.awssdk:bom:2.20.85')
-	implementation 'software.amazon.awssdk:dynamodb-enhanced'
+	implementation 'org.springframework.kafka:spring-kafka:3.2.2'
 	// 테스트 컨테이너
 	testImplementation 'org.testcontainers:testcontainers:1.19.0'
 	testImplementation 'org.testcontainers:junit-jupiter:1.16.2'
@@ -59,13 +49,12 @@ dependencies {
 	//jackson
 	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.18.1'
 
-	implementation platform("io.awspring.cloud:spring-cloud-aws-dependencies:3.1.0")
-	implementation 'io.awspring.cloud:spring-cloud-aws-starter-sqs:3.2.0-M1'
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
 	implementation "org.redisson:redisson-spring-boot-starter:3.40.2"
-	implementation 'io.awspring.cloud:spring-cloud-aws-starter-parameter-store'
-	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+
 
 }
 

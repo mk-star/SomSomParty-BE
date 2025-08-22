@@ -6,7 +6,6 @@ import com.acc.somsomparty.domain.Festival.dto.FestivalResponseDTO;
 import com.acc.somsomparty.domain.Festival.entity.Festival;
 import com.acc.somsomparty.domain.Festival.repository.FestivalRepository;
 import com.acc.somsomparty.domain.Ticket.entity.Ticket;
-import com.acc.somsomparty.domain.chatting.service.ChattingService;
 import com.acc.somsomparty.global.exception.CustomException;
 import com.acc.somsomparty.global.exception.error.ErrorCode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,7 +28,6 @@ public class FestivalQueryServiceImpl implements FestivalQueryService {
     private final FestivalRepository festivalRepository;
     private final RedisTemplate<String, Object> redisTemplate;
     private final ObjectMapper objectMapper;
-    private final ChattingService chattingService;
 
     @Override
     public FestivalResponseDTO.FestivalPreViewListDTO getFestivalList(Long lastId, int limit) {
@@ -98,7 +96,6 @@ public class FestivalQueryServiceImpl implements FestivalQueryService {
         }
 
         Festival savedFestival = festivalRepository.save(festival);
-        chattingService.publishCreateChatRoom(savedFestival);
 
         // Redis 캐시 무효화
         String cacheKeyPattern = "festival::search::*";

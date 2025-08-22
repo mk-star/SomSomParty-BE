@@ -6,6 +6,7 @@ import com.acc.somsomparty.domain.Festival.dto.FestivalResponseDTO;
 import com.acc.somsomparty.domain.Festival.entity.Festival;
 
 import com.acc.somsomparty.domain.Festival.service.FestivalQueryService;
+import com.acc.somsomparty.domain.Queue.service.SlotService;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class FestivalController {
     private final FestivalQueryService festivalQueryService;
+    private final SlotService slotService;
 
     @PostMapping("/create")
     @Operation(summary = "축제 생성", description = "축제를 생성합니다.")
@@ -44,5 +46,12 @@ public class FestivalController {
                                                                                      @RequestParam(defaultValue = "10") int limit,
                                                                                      @RequestParam(name = "keyword") String keyword) {
         return ResponseEntity.ok(festivalQueryService.searchFestival(lastId, limit, keyword));
+    }
+
+    @PostMapping("/{festivalId}/slots")
+    @Operation(summary = "슬롯 초기화", description = "축제 별 슬롯을 초기화합니다.")
+    public ResponseEntity<String> setMaxSlot(@PathVariable String festivalId, @RequestParam int maxSlot) {
+        slotService.initializeSlot(festivalId, maxSlot).subscribe();
+        return ResponseEntity.ok("슬롯 초기화 성공");
     }
 }

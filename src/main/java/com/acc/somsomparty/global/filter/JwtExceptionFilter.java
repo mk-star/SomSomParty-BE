@@ -10,20 +10,20 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-@Component
-public class JwtExceptionFilter extends OncePerRequestFilter {
-
-    @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
-        response.setCharacterEncoding("utf-8");
-
-        try{
-            filterChain.doFilter(request, response);
-        } catch (CustomException e){
-            response.setStatus(e.getErrorCode().getHttpStatus().value());  // 401 Unauthorized
-            response.getWriter().write(e.getMessage());  // CustomException 메시지 전달
-            return;
-        }
-    }
-}
+//@Component
+//public class JwtExceptionFilter extends OncePerRequestFilter {
+//
+//    @Override
+//    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+//            throws ServletException, IOException {
+//        response.setCharacterEncoding("utf-8");
+//
+//        try{
+//            filterChain.doFilter(request, response);
+//        } catch (CustomException e){
+//            response.setStatus(e.getErrorCode().getHttpStatus().value());  // 401 Unauthorized
+//            response.getWriter().write(e.getMessage());  // CustomException 메시지 전달
+//            return;
+//        }
+//    }
+//}
