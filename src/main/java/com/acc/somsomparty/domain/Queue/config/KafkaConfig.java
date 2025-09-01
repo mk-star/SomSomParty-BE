@@ -63,7 +63,7 @@ public class KafkaConfig {
         ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
 
         factory.setConsumerFactory(consumerFactory());
-        factory.setConcurrency(3);
+//        factory.setConcurrency(3);
 
         return factory;
     }
@@ -73,7 +73,7 @@ public class KafkaConfig {
     public NewTopic newTopic() {
         return TopicBuilder.name("queue-wait-1")
                 .partitions(3)
-                .replicas(2)
+                .replicas(1)
                 .config(TopicConfig.RETENTION_MS_CONFIG, String.valueOf(1000 * 60 * 60)) // 1시간
                 .build();
     }

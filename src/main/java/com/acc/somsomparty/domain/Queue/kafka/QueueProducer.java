@@ -19,15 +19,15 @@ public class QueueProducer {
     private final ObjectMapper objectMapper;
     private static final String topic = "queue-wait-%s";
 
-    public void enqueueUser(String festivalId, String userId) {
-        QueueMessage message = createQueueMessage(userId);
+    public void enqueueUser(String festivalId, String userId, Long timestamp) {
+        QueueMessage message = createQueueMessage(userId, timestamp);
         sendQueueMessage(festivalId, message);
     }
 
-    private QueueMessage createQueueMessage(String userId) {
+    private QueueMessage createQueueMessage(String userId, Long timestamp) {
         return QueueMessage.builder()
                 .userId(userId)
-                .currentTime(Instant.now().toEpochMilli())
+                .currentTime(timestamp)
                 .build();
     }
 

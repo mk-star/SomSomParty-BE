@@ -54,6 +54,8 @@ dependencies {
 	implementation "org.redisson:redisson-spring-boot-starter:3.40.2"
 
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'io.micrometer:micrometer-registry-prometheus'
 
 
 }

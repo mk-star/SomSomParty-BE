@@ -31,3 +31,9 @@ logging:
     kafka.log: ERROR
     state.change.logger: ERROR
     org.apache.zookeeper: ERROR
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+#       include: prometheus

@@ -28,59 +28,37 @@
             .catch(err => console.error(err));
 
         document.getElementById('enterQueueBtn').addEventListener('click', () => {
-            // userId 배열 (1~10)
-            const userIds = Array.from({ length: 20 }, (_, i) => (i + 1).toString());
+            const userIds = Array.from({ length: 100 }, (_, i) => (i + 1).toString());
 
-            userIds.forEach(userId => {
-                fetch(`/queues/${festivalId}/waiting-room/users/${userId}`, {
-                    method: 'GET'
-                })
+            const requests = userIds.map(userId => {
+                return fetch(`/queues/${festivalId}/waiting-room/users/${userId}`, { method: 'GET' })
                     .then(response => {
-                        if (!response.ok) {
-                            throw new Error(`대기열 등록 실패 (userId: ${userId})`);
-                        }
+                        if (!response.ok) throw new Error(`대기열 등록 실패 (userId: ${userId})`);
                         return response.text();
                     })
                     .then(() => {
                         console.log(`대기열 등록 성공 (userId: ${userId})`);
 
-                        // 모든 유저에 대해 모니터링 시작 요청
-                        if (stompClient.connected) {
-                            stompClient.send(`/app/queue.${festivalId}`, {}, '');
-                        } else {
-                            console.error('STOMP not connected yet');
-                        }
+                        stompClient.subscribe(`/topic/queue.status.${festivalId}.${userId}`, message => {
+                            const data = JSON.parse(message.body);
+                            console.log(`[userId: ${userId}] rank: ${data.rank}`);
 
-
-                            stompClient.subscribe(`/topic/queue.status.${festivalId}.${userId}`, message => {
-                                const data = JSON.parse(message.body);
-
-                                console.log(`[userId: ${userId}] rank: ${data.rank}`);
-
-                                if (data.rank === -1) {
-                                    stompClient.send(`/app/queue.${festivalId}.leave`, {}, '');
+                            if (userId === '100') {
+                                const rankDisplay = document.getElementById('rankDisplay');
+                                if (rankDisplay) {
+                                    rankDisplay.textContent = data.rank === -1
+                                        ? "대기열에 없습니다."
+                                        : `현재 순위: ${data.rank}`;
                                 }
-
-                                // 순위 콘솔 로그
-                                console.log(`[userId: ${userId}] rank: ${data.rank}`);
-
-                                if (userId === '10') {
-                                    // 화면에 순위 표시
-                                    const rankDisplay = document.getElementById('rankDisplay');
-                                    if (rankDisplay) {
-                                        if (data.rank === -1) {
-                                            rankDisplay.textContent = "대기열에 없습니다.";
-                                        } else {
-                                            rankDisplay.textContent = `현재 순위: ${data.rank}`;
-                                        }
-                                    }
-                                }
-                            });
-
+                            }
+                        });
                     })
-                    .catch(err => {
-                        console.error(`대기열 등록 오류 (userId: ${userId}):`, err);
-                    });
+                    .catch(err => console.error(err));
+            });
+
+            // 모든 요청을 동시에 시작
+            Promise.all(requests).then(() => {
+                console.log('모든 요청 발송 완료');
             });
         });
     });
