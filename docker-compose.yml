@@ -1,51 +1,224 @@
-services:
-  redis:
-    image: redis:latest
-    container_name: redis
-    ports:
-      - "6380:6379"
-  zookeeper:
-    image: bitnami/zookeeper:latest
-    container_name: zookeeper
-    ports:
-      - "2181:2181"  # Zookeeper는 Kafka를 위한 메타데이터 저장소 역할
-    environment:
-      - ALLOW_ANONYMOUS_LOGIN=yes
-
-  kafka:
-    image: bitnami/kafka:3.5.1
-    container_name: kafka
-    ports:
-      - "9092:9092"  # Kafka 브로커가 외부로 노출되는 포트
-    environment:
-      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181  # Zookeeper 연결 설정
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092  # 내부용 Listener
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092  # 외부용 Listener
-      - ALLOW_PLAINTEXT_LISTENER=yes  # 인증 없이 허용 (개발용)
-      - KAFKA_ENABLE_KRAFT=no  # KRaft 모드 비활성화 → Zookeeper 기반 Kafka 사용
-    depends_on:
-      - zookeeper  # Kafka는 Zookeeper가 먼저 실행되어야 함
-
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-    ports:
-      - "9090:9090"
-    networks:
-      - monitoring-network
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: grafana
-    ports:
-      - "3000:3000"
-    networks:
-      - monitoring-network
-
 networks:
-  monitoring-network:
+#  monitoring-network:
+#    driver: bridge
+  kafka_network:
     driver: bridge
+  redis:
+    driver: bridge
+
+services:
+#  prometheus:
+#    image: prom/prometheus:latest
+#    container_name: prometheus
+#    volumes:
+#      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+#    command:
+#      - '--config.file=/etc/prometheus/prometheus.yml'
+#    ports:
+#      - "9090:9090"
+#    networks:
+#      - monitoring-network
+#
+#  grafana:
+#    image: grafana/grafana:latest
+#    container_name: grafana
+#    ports:
+#      - "3000:3000"
+#    networks:
+#      - monitoring-network
+
+  redis-master-1:
+    container_name: redis-master-1
+    image: redis:latest
+    command: >
+      redis-server --port 7001
+      --cluster-enabled yes
+      --cluster-config-file node.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+    ports:
+      - "7001:7001"
+      - "7002:7002"
+      - "7003:7003"
+      - "7004:7004"
+      - "7005:7005"
+      - "7006:7006"
+
+  redis-master-2:
+    network_mode: "service:redis-master-1"
+    container_name: redis-master-2
+    image: redis:latest
+    command: >
+      redis-server --port 7002
+      --cluster-enabled yes
+      --cluster-config-file node.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+
+  redis-master-3:
+    network_mode: "service:redis-master-1"
+    container_name: redis-master-3
+    image: redis:latest
+    command: >
+      redis-server --port 7003
+      --cluster-enabled yes
+      --cluster-config-file node.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+
+  redis-replica-1:
+    network_mode: "service:redis-master-1"
+    container_name: redis-replica-1
+    image: redis:latest
+    command: >
+      redis-server --port 7004
+      --cluster-enabled yes
+      --cluster-config-file node.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+
+  redis-replica-2:
+    network_mode: "service:redis-master-1"
+    container_name: redis-replica-2
+    image: redis:latest
+    command: >
+      redis-server --port 7005
+      --cluster-enabled yes
+      --cluster-config-file node.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+
+  redis-replica-3:
+    network_mode: "service:redis-master-1"
+    container_name: redis-replica-3
+    image: redis:latest
+    command: >
+      redis-server --port 7006
+      --cluster-enabled yes
+      --cluster-config-file node.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+
+  redis-cluster-entry:
+    network_mode: "service:redis-master-1"
+    image: redis:latest
+    container_name: redis-cluster-entry
+    command: >
+      redis-cli --cluster create
+      127.0.0.1:7001 127.0.0.1:7002 127.0.0.1:7003
+      127.0.0.1:7004 127.0.0.1:7005 127.0.0.1:7006
+      --cluster-replicas 1
+      --cluster-yes
+    depends_on:
+      - redis-master-1
+      - redis-master-2
+      - redis-master-3
+      - redis-replica-1
+      - redis-replica-2
+      - redis-replica-3
+
+  Kafka00Service:
+    image: bitnami/kafka:3.9.0
+    restart: unless-stopped # 컨테이너가 중단되지 않은 한 다시 시작
+    container_name: Kafka00Container
+    ports:
+      - '10000:9094' # 브로커를 포트로 매핑
+    environment:
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_CFG_BROKER_ID=0
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_KRAFT_CLUSTER_ID=HsDBs9l6UUmQq7Y5E6bNlw
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@Kafka00Service:9093,1@Kafka01Service:9093,2@Kafka02Service:9093
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://Kafka00Service:9092,EXTERNAL://127.0.0.1:10000
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR=2
+    networks:
+      - kafka_network
+    volumes:
+      - Kafka00:/bitnami/kafka
+
+  Kafka01Service:
+    image: bitnami/kafka:3.9.0
+    restart: unless-stopped
+    container_name: Kafka01Container
+    ports:
+      - '10001:9094'
+    environment:
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_CFG_BROKER_ID=1
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_KRAFT_CLUSTER_ID=HsDBs9l6UUmQq7Y5E6bNlw
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@Kafka00Service:9093,1@Kafka01Service:9093,2@Kafka02Service:9093
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://Kafka01Service:9092,EXTERNAL://127.0.0.1:10001
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR=2
+    networks:
+      - kafka_network
+    volumes:
+      - Kafka01:/bitnami/kafka
+
+  Kafka02Service:
+    image: bitnami/kafka:3.9.0
+    restart: unless-stopped
+    container_name: Kafka02Container
+    ports:
+      - '10002:9094'
+    environment:
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_CFG_BROKER_ID=2
+      - KAFKA_CFG_NODE_ID=2
+      - KAFKA_KRAFT_CLUSTER_ID=HsDBs9l6UUmQq7Y5E6bNlw
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@Kafka00Service:9093,1@Kafka01Service:9093,2@Kafka02Service:9093
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://Kafka02Service:9092,EXTERNAL://127.0.0.1:10002
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR=2
+    networks:
+      - kafka_network
+    volumes:
+      - Kafka02:/bitnami/kafka
+
+  KafkaWebUiService:
+    image: provectuslabs/kafka-ui:latest
+    restart: unless-stopped
+    container_name: KafkaWebUiContainer
+    ports:
+      - '8090:8080'
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=Local-Kraft-Cluster
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=Kafka00Service:9092,Kafka01Service:9092,Kafka02Service:9092
+      - DYNAMIC_CONFIG_ENABLED=true
+      - KAFKA_CLUSTERS_0_AUDIT_TOPICAUDITENABLED=true
+      - KAFKA_CLUSTERS_0_AUDIT_CONSOLEAUDITENABLED=true
+      #- KAFKA_CLUSTERS_0_METRICS_PORT=9999
+    networks:
+      - kafka_network
+
+volumes:
+  Kafka00:
+    driver: local
+  Kafka01:
+    driver: local
+  Kafka02:
+    driver: local
+

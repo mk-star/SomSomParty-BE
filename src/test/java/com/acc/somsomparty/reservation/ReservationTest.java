@@ -24,37 +24,34 @@ class ReservationTest {
 
     @Autowired
     private TicketRepository ticketRepository;
-
     @Test
-    public void 동시_80개의_요청() throws InterruptedException {
+    public void testPreReserveSeatConcurrency() throws InterruptedException {
+        UUID scheduleId = UUID.fromString("8fb9facb-2a07-47f7-aed6-05f5e7928b3e");
+        UUID seatId = UUID.fromString("59f33c13-7aa7-49be-9caa-767972ec12b9");
+        UUID userId = UUID.randomUUID();
 
-        int threadCount = 75;
-        //비동기로 실행되는 작업을 단순화해서 사용하게 도와주는 자바의 api
-        ExecutorService executorService = Executors.newFixedThreadPool(32);
+        ExecutorService executor = Executors.newFixedThreadPool(5);
+        CountDownLatch latch = new CountDownLatch(5);
+        AtomicInteger successCount = new AtomicInteger(0);
 
-        //카운트다운래치는 다른 스래드에서 수행중인 작업을 완료될때까지 대기하도록 도와주는 클래스
-        CountDownLatch latch = new CountDownLatch(threadCount);
-
-        for (int i = 0; i < threadCount; i++) {
-            ReservationRequestDTO.makeReservationDTO request = ReservationRequestDTO.makeReservationDTO.builder()
-                    .festivalId(1L)
-                    .festivalDate(LocalDate.parse("2025-08-22"))
-                    .build();
-
-            executorService.submit(() -> {
+        for (int i = 0; i < 5; i++) {
+            executor.submit(() -> {
                 try {
-                    reservationCommandService.makeReservation(request);
+                    luaScriptService.preReserveSeat(scheduleId, seatId,  userId);
+                    if (successCount.incrementAndGet() == 1) {
+                        System.out.println("예약 성공!");
+                    }
+                } catch (ApplicationException e) {
+                    assertEquals(e.getMessage(), "좌석이 이미 점유되어 있습니다.");
                 } finally {
                     latch.countDown();
                 }
             });
         }
-        latch.await();
-        executorService.shutdown();
 
-        //검증 프로세스 진행~~
-        Ticket ticket = ticketRepository.findByFestivalIdAndFestivalDate(1L, LocalDate.parse("2025-08-22"))
-                .orElseThrow();
-        assertEquals(0, ticket.getLeftTickets(), "C 모두 소진되어야 함");
+        latch.await();
+
+        assertEquals(1, successCount.get(), "성공한 예약은 1번만 있어야 합니다.");
+        executor.shutdown();
     }
 }

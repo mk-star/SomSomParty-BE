@@ -1,19 +1,17 @@
 package com.acc.somsomparty.domain.Queue.kafka;
 
 import com.acc.somsomparty.domain.Queue.dto.QueueMessage;
+import com.acc.somsomparty.domain.Queue.dto.QueueStatus;
 import com.acc.somsomparty.domain.Queue.service.QueueService;
 import com.acc.somsomparty.domain.Queue.service.SlotService;
-import com.acc.somsomparty.domain.Reservation.aop.DistributedLock;
+import com.acc.somsomparty.global.exception.CustomException;
+import com.acc.somsomparty.global.exception.error.ErrorCode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Mono;
-import reactor.util.retry.Retry;
-
-import java.time.Duration;
 
 @Service
 @Slf4j
@@ -23,7 +21,7 @@ public class QueueConsumer {
     private final SlotService slotService;
     private final QueueService queueService;
 
-    @KafkaListener(topicPattern = "queue-wait-.*", groupId = "waiting-group")
+    @KafkaListener(topicPattern = "queue-wait-.*", concurrency = "4")
     public void consume(ConsumerRecord<String, String> record) {
         String topic = record.topic();
         String festivalId = topic.replace("queue-wait-", "");
@@ -34,7 +32,7 @@ public class QueueConsumer {
             log.info("Kafka 메시지 수신 [Festival: {}, User: {}, CurrentTime: {}]",
                     festivalId, queueMessage.userId(), queueMessage.currentTime());
 
-            processQueue(festivalId, queueMessage.userId()).subscribe();
+            processQueue(festivalId);
         } catch (Exception e) {
             log.error("Kafka 메시지 처리 실패 [Topic: {}, Message: {}, Error: {}]", topic, message, e.getMessage());
         }
@@ -49,29 +47,61 @@ public class QueueConsumer {
         }
     }
 
-    public Mono<Void> processQueue(String festivalId, String userId) {
-        return slotService.acquireSlotAndPopUser(festivalId)
-                .flatMap(result -> {
-                    if ("EMPTY".equals(result)) {
+    private void processQueue(String festivalId) {
+        int maxRetry = 5;
+        int retryDelay = 100; // ms
+
+        for (int attempt = 1; attempt <= maxRetry; attempt++) {
+            try {
+                QueueStatus status = slotService.getQueueStatus(festivalId);
+
+                if (status.getQueueSize() == 0) {
+                    log.info("대기열 비어 있음, 처리 종료 [Festival: {}]", festivalId);
+                    return;
+                }
+
+                long availableSlots = status.getAvailableSlots();
+                if (availableSlots == 0) {
+                    log.info("슬롯 없음, 재시도 [{} / {}] [Festival: {}]", attempt, maxRetry, festivalId);
+                    throw new CustomException(ErrorCode.NO_SLOT);
+                }
+
+                for (int i = 0; i < availableSlots; i++) {
+                    String userId = slotService.acquireSlotAndPopUser(festivalId);
+                    if (userId == null) {
                         log.info("대기열 비어 있음, 처리 종료 [Festival: {}]", festivalId);
-                        return Mono.empty();
-                    }
-                    if ("NOSLOT".equals(result)) { // 슬롯 없으면 예외 발생 → retryWhen에서 재시도 처리
-                        log.info("슬롯이 없음 [Festival: {}, User: {}]", festivalId, userId);
-                        return Mono.error(new RuntimeException("No slot"));
+                        break;
                     }
 
-                    log.info("사용자 입장 처리 [Festival: {}, User: {}]", festivalId, result);
+                    log.info("사용자 입장 처리 [Festival: {}, User: {}]", festivalId, userId);
 
-                    // rank 전송을 비동기 처리
-                    return queueService.sendRank(festivalId, result);
-                })
-                .retryWhen(Retry.backoff(5, Duration.ofMillis(100))
-                        .filter(ex -> "No slot".equals(ex.getMessage())))
-                .onErrorResume(ex -> {
-                    log.warn("슬롯 재시도 초과, 유저 스킵 [Festival: {}, Error: {}]", festivalId, ex.getMessage());
-                    return Mono.empty();
-                })
-                .then(queueService.sendRanks(festivalId));
+                    try {
+                        queueService.sendRank(festivalId, userId);
+                    } catch (Exception e) {
+                        log.error("Rank 전송 실패 [Festival: {}, User: {}, Error: {}]", festivalId, userId, e.getMessage());
+                    }
+                    slotService.releaseSlot(festivalId, userId);
+                }
+
+                queueService.sendRanks(festivalId);
+                break; // 성공하면 재시도 루프 종료
+            } catch (Exception e) {
+                log.error("예약 처리 실패. 재시도 시도: {}/{}", attempt, maxRetry, e);
+
+                if (attempt == maxRetry) {
+                    log.warn("재시도 최대 횟수 초과, 유저 스킵 [Festival: {}]", festivalId);
+                    break;
+                }
+
+                try {
+                    Thread.sleep(retryDelay); // 딜레이 적용
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    log.error("재시도 중 인터럽트 발생.", ie);
+                }
+
+                retryDelay *= 2;
+            }
+        }
     }
 }

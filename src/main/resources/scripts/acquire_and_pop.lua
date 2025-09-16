@@ -17,8 +17,7 @@ if active < max then
     if #popped > 0 then
         -- 슬롯 점유
         redis.call('INCR', KEYS[2])
-        -- 여기서 rank 전송 대신 바로 슬롯 해제
-        redis.call('DECR', KEYS[2])
+
         return popped[1]  -- 사용자 ID 반환
     end
 end

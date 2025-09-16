@@ -1,14 +1,11 @@
 package com.acc.somsomparty.domain.Ticket.entity;
 
 import com.acc.somsomparty.domain.Festival.entity.Festival;
-//import com.acc.somsomparty.domain.Reservation.entity.Reservation;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Getter
@@ -34,7 +31,4 @@ public class Ticket {
     @Setter
     @Column(name = "left_tickets", nullable = false)
     private Integer leftTickets;
-
-//    @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL)
-//    private List<Reservation> reservationList = new ArrayList<>();
 }

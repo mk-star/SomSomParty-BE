@@ -23,6 +23,8 @@ public enum ErrorCode {
     // Queue
     QUEUE_ALREADY_REGISTERED_USER(HttpStatus.CONFLICT, "이미 큐에 등록된 유저입니다."),
     LOCK_ACQUISITION_FAILED(HttpStatus.BAD_REQUEST, "락을 획득할 수 없습니다."),
+    NO_SLOT(HttpStatus.BAD_REQUEST, "슬롯이 부족합니다."),
+
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."),
     USER_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 존재하는 사용자입니다."),

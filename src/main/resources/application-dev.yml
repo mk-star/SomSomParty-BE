@@ -13,24 +13,40 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.MySQLDialect
   kafka:
-    bootstrap_servers: localhost:9092
+    bootstrap_servers: localhost:10000,localhost:10001,localhost:10002
     consumer:
       auto-offset-reset: earliest
   data:
     redis:
-      host: localhost
-      port: 6380
+#      host: localhost
+#      port: 6379
+      cluster:
+        max-redirects: 3
+        nodes:
+          - localhost:7001
+          - localhost:7002
+          - localhost:7003
+          - localhost:7004
+          - localhost:7005
+          - localhost:7006
+#  logging:
+#  level:
+#    root: INFO
+#    org.apache.kafka: ERROR
+#    kafka: ERROR
+#    kafka.network: ERROR
+#    kafka.request.logger: ERROR
+#    kafka.controller: ERROR
+#    kafka.log: ERROR
+#    state.change.logger: ERROR
+#    org.apache.zookeeper: ERROR
+
 logging:
   level:
-    root: INFO
-    org.apache.kafka: ERROR
-    kafka: ERROR
-    kafka.network: ERROR
-    kafka.request.logger: ERROR
-    kafka.controller: ERROR
-    kafka.log: ERROR
-    state.change.logger: ERROR
-    org.apache.zookeeper: ERROR
+    org.apache.kafka.clients.consumer: WARN
+    org.apache.kafka.clients.producer: WARN
+    org.apache.kafka.common: WARN
+
 management:
   endpoints:
     web:

@@ -51,7 +51,7 @@ public class FestivalController {
     @PostMapping("/{festivalId}/slots")
     @Operation(summary = "슬롯 초기화", description = "축제 별 슬롯을 초기화합니다.")
     public ResponseEntity<String> setMaxSlot(@PathVariable String festivalId, @RequestParam int maxSlot) {
-        slotService.initializeSlot(festivalId, maxSlot).subscribe();
+        slotService.initializeSlot(festivalId, maxSlot);
         return ResponseEntity.ok("슬롯 초기화 성공");
     }
 }
