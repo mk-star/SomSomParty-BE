@@ -3,18 +3,18 @@
 -- ARGV[1] = TTL (초 단위)
 -- ARGV[2] = 허용 요청 수
 
--- 키 값을 1 증가시킴
-local current = redis.call('INCR', KEYS[1])
+local current = tonumber(redis.call('GET', KEYS[1]) or "0")
 
--- 첫 요청이면 TTL 설정
-if tonumber(current) == 1 then
-    redis.call('EXPIRE', KEYS[1], ARGV[1])
-end
-
--- 제한 초과 시 0 반환
-if tonumber(current) > tonumber(ARGV[2]) then
+if tonumber(current) + 1 > tonumber(ARGV[2]) then
     return 0
 end
 
+current = redis.call('INCR', KEYS[1])
+
+-- TTL은 첫 요청일 때만 설정
+if current == 1 then
+    redis.call('EXPIRE', KEYS[1], ttl)
+end
+
 -- 현재 카운트 반환
-return current
+return current;
