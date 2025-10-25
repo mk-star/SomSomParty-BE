@@ -40,6 +40,7 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	// 카프카
 	implementation 'org.springframework.kafka:spring-kafka'
+
 	// 테스트 컨테이너
 	testImplementation 'org.testcontainers:testcontainers:1.19.0'
 	testImplementation 'org.testcontainers:junit-jupiter:1.16.2'
@@ -56,7 +57,9 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 	implementation 'io.micrometer:micrometer-registry-prometheus'
 
-
+	implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.2.0'
+	implementation 'org.springframework.boot:spring-boot-starter-aop'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 }
 
 tasks.named('test') {

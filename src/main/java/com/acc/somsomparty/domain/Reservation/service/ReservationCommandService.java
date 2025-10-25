@@ -1,8 +1,10 @@
 package com.acc.somsomparty.domain.Reservation.service;
 
 import com.acc.somsomparty.domain.Reservation.dto.ReservationRequestDTO;
-import com.acc.somsomparty.domain.Reservation.dto.ReservationResponseDTO;
+
+import com.acc.somsomparty.domain.Reservation.kafka.event.ReservationEvent;
 
 public interface ReservationCommandService {
-    ReservationResponseDTO.makeReservationResultDTO makeReservation();
+    void reserve(ReservationRequestDTO request);
+    void makeReservation(ReservationEvent event);
 }

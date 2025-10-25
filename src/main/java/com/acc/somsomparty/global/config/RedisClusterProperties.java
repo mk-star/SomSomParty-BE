@@ -7,11 +7,11 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
 
-@Setter
-@Getter
-@Configuration
-@ConfigurationProperties(prefix = "spring.data.redis.cluster")
-public class RedisClusterProperties {
-    private int maxRedirects;
-    private List<String> nodes;
-}
+//@Setter
+//@Getter
+//@Configuration
+//@ConfigurationProperties(prefix = "spring.data.redis.cluster")
+//public class RedisClusterProperties {
+//    private int maxRedirects;
+//    private List<String> nodes;
+//}

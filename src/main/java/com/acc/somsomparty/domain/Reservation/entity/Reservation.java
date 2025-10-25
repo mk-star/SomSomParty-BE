@@ -16,10 +16,10 @@ public class Reservation extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @ManyToOne
-    @JoinColumn(name = "ticket_id")
-    private Ticket ticket;
+
+    @Column(name = "ticket_id")
+    private Long ticketId;
+
     @Column(name = "reservation_date", nullable = false)
     private LocalDate reservationDate;
 }
-

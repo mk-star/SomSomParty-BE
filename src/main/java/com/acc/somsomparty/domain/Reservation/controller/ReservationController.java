@@ -28,9 +28,10 @@ public class ReservationController {
 
     @Operation(summary = "예약하기", description = "사용자 정보와 예약 날짜로 예약합니다.")
     @PostMapping("")
-    public ResponseEntity<ReservationResponseDTO.makeReservationResultDTO> makeReservation() {
-        ReservationResponseDTO.makeReservationResultDTO reservationResultDTO = reservationCommandService.makeReservation();
-        return new ResponseEntity<>(reservationResultDTO, HttpStatus.OK);
+    public ResponseEntity<String> makeReservation(@RequestBody ReservationRequestDTO request) {
+        reservationCommandService.reserve(request);
+        //return new ResponseEntity<>(reservationCommandService.reserve(request), HttpStatus.OK);
+        return new ResponseEntity<>("예약이 완료되었습니다.", HttpStatus.OK);
     }
 
     @Operation(summary = "예약하기", description = "사용자 정보와 예약 날짜로 예약합니다.")

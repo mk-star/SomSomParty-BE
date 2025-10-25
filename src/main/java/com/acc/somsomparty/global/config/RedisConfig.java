@@ -24,7 +24,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RedisConfig {
     private final ObjectMapper objectMapper;
-    private final RedisClusterProperties redisClusterProperties;
+//    private final RedisClusterProperties redisClusterProperties;
 
 
     @Bean
@@ -43,49 +43,48 @@ public class RedisConfig {
         return redisTemplate;
     }
 
-//    @Bean
-//    @Primary
-//    public RedisConnectionFactory redisConnectionFactory() {
-//        return new LettuceConnectionFactory("localhost", 8080);
-//    }
-
-
     @Bean
+    @Primary
     public RedisConnectionFactory redisConnectionFactory() {
-        final List<RedisNode> redisNodes = redisClusterProperties.getNodes().stream()
-                .map(node -> new RedisNode(node.split(":")[0], Integer.parseInt(node.split(":")[1])))
-                .toList();
-
-        // Cluster 설정
-        RedisClusterConfiguration clusterConfiguration = new RedisClusterConfiguration();
-        clusterConfiguration.setClusterNodes(redisNodes);
-        clusterConfiguration.setMaxRedirects(redisClusterProperties.getMaxRedirects());
-
-        // Socket 옵션
-        SocketOptions socketOptions = SocketOptions.builder()
-                .connectTimeout(Duration.ofMillis(100L))
-                .keepAlive(true)
-                .build();
-
-        // Cluster Topology refresh 옵션
-        ClusterTopologyRefreshOptions clusterTopologyRefreshOptions = ClusterTopologyRefreshOptions.builder()
-                .dynamicRefreshSources(true)
-                .enableAllAdaptiveRefreshTriggers()
-                .enablePeriodicRefresh(Duration.ofMinutes(30L))
-                .build();
-
-        // Cluster Client 옵션
-        ClientOptions clientOptions = ClusterClientOptions.builder()
-                .topologyRefreshOptions(clusterTopologyRefreshOptions)
-                .socketOptions(socketOptions)
-                .build();
-
-        // Lettuce Client 설정
-        LettuceClientConfiguration clientConfiguration = LettuceClientConfiguration.builder()
-                .clientOptions(clientOptions)
-                .commandTimeout(Duration.ofMillis(3000L))
-                .build();
-
-        return new LettuceConnectionFactory(clusterConfiguration, clientConfiguration);
+        return new LettuceConnectionFactory("localhost", 6379);
     }
+
+//    @Bean
+//    public RedisConnectionFactory redisConnectionFactory() {
+//        final List<RedisNode> redisNodes = redisClusterProperties.getNodes().stream()
+//                .map(node -> new RedisNode(node.split(":")[0], Integer.parseInt(node.split(":")[1])))
+//                .toList();
+//
+//        // Cluster 설정
+//        RedisClusterConfiguration clusterConfiguration = new RedisClusterConfiguration();
+//        clusterConfiguration.setClusterNodes(redisNodes);
+//        clusterConfiguration.setMaxRedirects(redisClusterProperties.getMaxRedirects());
+//
+//        // Socket 옵션
+//        SocketOptions socketOptions = SocketOptions.builder()
+//                .connectTimeout(Duration.ofMillis(100L))
+//                .keepAlive(true)
+//                .build();
+//
+//        // Cluster Topology refresh 옵션
+//        ClusterTopologyRefreshOptions clusterTopologyRefreshOptions = ClusterTopologyRefreshOptions.builder()
+//                .dynamicRefreshSources(true)
+//                .enableAllAdaptiveRefreshTriggers()
+//                .enablePeriodicRefresh(Duration.ofMinutes(30L))
+//                .build();
+//
+//        // Cluster Client 옵션
+//        ClientOptions clientOptions = ClusterClientOptions.builder()
+//                .topologyRefreshOptions(clusterTopologyRefreshOptions)
+//                .socketOptions(socketOptions)
+//                .build();
+//
+//        // Lettuce Client 설정
+//        LettuceClientConfiguration clientConfiguration = LettuceClientConfiguration.builder()
+//                .clientOptions(clientOptions)
+//                .commandTimeout(Duration.ofMillis(3000L))
+//                .build();
+//
+//        return new LettuceConnectionFactory(clusterConfiguration, clientConfiguration);
+//    }
 }
