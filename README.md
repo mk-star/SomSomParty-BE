@@ -1,7 +1,7 @@
-# 🎉 대용량 트래픽을 처리하는 축제 예매 플랫폼
+# 🎉 축제 예매 플랫폼 '솜솜파티'
 
 ## 프로젝트 소개
-사용자가 축제를 쉽고 직관적으로 예약하고, 참여자들과 정보를 공유하며 실시간 소통할 수 있는 종합 축제 예약 플랫폼
+사용자가 축제를 예약하고, 참여자들과 정보를 공유하며 실시간으로 소통할 수 있는 종합 축제 플랫폼
 
 <br/>
 
@@ -29,10 +29,9 @@
 
 <br/>
 
-## 담당 업무
+## 담당 업무 (풀스택)
 - 프론트엔드 배포
-- 대기열 시스템 구현
-- 축제 예매 기능 구현
+- 축제 예약 기능 구현
 
 <br/>
 
@@ -48,120 +47,27 @@
 
 <br/>
 
-## 대기열 시스템
-### AWS SQS + Redis를 이용한 대기열 시스템
 
-- 대기열 시스템은 클라이언트가 요청을 보낼 때 이를 차례대로 처리함으로써 서버 과부하를 방지하고 안정적인 서비스를 제공
-- 특히, 티켓팅과 같이 특정 시간에 요청이 집중되는 상황에서는 대기열 시스템이 필수적이며, 이를 효율적으로 구현하기 위해 **AWS SQS**와 **Redis**를 함께 활용
+## 예약 기능
 
-<br/>
+### Kafka Cluster
+- 파티션 기반 병렬 처리로 동시에 몰리는 대규모 예약 요청을 빠르게 처리
+- 수평 확장을 통해 예약 트래픽 급증 상황에도 유연하게 대응
+- 데이터 유실을 최소화하여 안정적이고 신뢰성 있는 예약 서비스 제공
 
-**Redis** 
-- 실시간 대기열 순서 관리
-- 유저들의 대기 상태 관리
-
-<br/>
-
-**Redis Sorted Set이란?**
-- Sorted Set은 key 하나에 여러 개의 score와 value로 구성되는 자료구조
-- value는 score로 sort되며 중복되지 않음
-
-<br/>
-
-**프로젝트 설정**
-- Key: Festival 정보
-- Value: 사용자 이메일
-- Score: 대기열에 입장한 시간을 유닉스타임(m/s) 값으로 설정
-
-<br/>
-
-**SQS**
-- 대기 처리와 관련된 메시지를 비동기적으로 처리
-- 대기열의 상태 변화를 안정적이고 효율적으로 관리
-<img src="https://github.com/user-attachments/assets/f82678d5-8376-41ba-9f04-73b5d351e445">
-
-<br/>
-
-대기열 시스템을 통해 위와 같이 사용자들이 자신의 현재 대기 번호를 실시간으로 확인 가능
-
-
-<br/>
-
-
-### 요청 흐름
-
-<b>1. 유저가 대기열에 있는 경우</b>
-<p align="center"><img src="https://github.com/user-attachments/assets/5b1a5b66-a5f4-49a7-8fa3-b8f339f20fc0"></p>
-
-<br/>
-
-- 최초 요청 시:
-    - 유저는 Redis의 Sorted Set을 이용한 대기열에 등록됨
-    - 이때 대기열에 유저가 성공적으로 등록되면, 해당 유저는 대기열 내에서 순위가 부여됨
-    - `SqsSender`의 `send()` 메서드를 통해 SQS로 대기열에 유저가 등록되었다는 메시지를 전달
-- 재요청 시:
-    - 유저가 재요청을 하면, 먼저 해당 유저가 대기열에 있는지 확인하고, 대기열에 있다면  대기표(대기 순위)를 반환
-- 대기열에서 유저 스캔 및 입장 허용:
-    - 일정 시간(SQS의 지연 시간)이 지난 후, SQS로부터 응답이 오면 대기열에서 유저들을 스캔하여 순차적으로 10명씩 대기 완료 열로 이동
-> 서버 부하를 줄이기 위해서 10개씩 발급
-
-<br/>
-
-<b>2. 유저가 대기완료 열로 이동한 경우</b>
-<p align="center"><img src="https://github.com/user-attachments/assets/cacbdf16-7386-4e37-8d46-6cac8d509fac"></p>
-   
-<br/>
-
-- 재요청 시:
-    - 유저가 대기열에 없다면, `-1`이 반환되어 유저는 대기열에 없는 상태로 처리
-    - `-1`을 받은 유저는 대기완료 열에 유저의 존재 여부를 다시 확인하기 위한 요청을 보냄
-    - 대기완료 큐에 유저가 존재한다면, 해당 유저는 대기열을 통과했음을 의미하므로 예약 페이지로 이동하여 예약 진행 가능
-
-<br/>
-
-### 부하 테스트
-> k6
-
-- 최대 사용자: 1000명
-- 램프 업: 1000명의 사용자에 도달할 때까지 30초마다 100명의 사용자 추가
-- 테스트 시나리오: 대기열 입장 → 5초 마다 rank 응답 반환 → 대기완료 열로 이동 → 타겟 페이지로 이동 후 대기완료 열에서 제거(사용자 점차 감소)
-
-<img src="https://github.com/user-attachments/assets/325a1cc4-141e-418a-9f63-9eb4e8a7e4b7">
-
-<br/>
-
-- 결과
-    - 평균 응답 시간: 1.28s
-        - 응답 시간이 9.55s까지 늘어날 수 있다는 점이 있음
-    - 요청 실패율: 0%
-    - 지연 시간 = 1.28초 - 1.27초 = 0.01초
-        - 네트워크 지연 등을 포함한 최대 시간으로, 0.01초로 짧은 것으로 나타남
-    - 처리량 = 56,045 / 308.8 ≈ 181.48 RPS
-        - 낮은 처리량 개선 필요 - 불필요한 반복 요청 줄이기(Polling 간격을 1초 → 3~5초로 늘리기), 서버 성능 최적화 필요
-
-<br/>
-
-## 예매 기능
-
-### 비관적 락(Pessimistic Lock) 적용
+### Redis Lua Script 적용
 ```java
-@Override
-@Transactional
-public ReservationResponseDTO.makeReservationResultDTO makeReservation(Long userId, ReservationRequestDTO.makeReservationDTO request) {
-    Ticket ticket = ticketRepository.findByFestivalIdAndFestivalDateWithLock(request.getFestivalId(), request.getFestivalDate()).orElseThrow(() -> new CustomException(ErrorCode.TICKET_NOT_FOUND));
-}
-
-// ------------------------------------------------------------
-
-public interface TicketRepository extends JpaRepository<Ticket, Long> {
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT t FROM Ticket t WHERE t.festival.id = :festivalId AND t.festivalDate = :festivalDate")
-    Optional<Ticket> findByFestivalIdAndFestivalDateWithLock(@Param("festivalId") Long festivalId,
-                                                             @Param("festivalDate") LocalDate festivalDate);
-}
+local stock = redis.call('GET', KEYS[1])
+if tonumber(stock) <= 0 then
+    return 0
+else
+    redis.call('DECR', KEYS[1])
+    return 1
+end
 ```
-- 공유 자원인 Ticket를 `TicketRepository`에서 불러올 때, `@Lock` 어노테이션을 사용하여 비관적 쓰기 락(PESSIMISTIC_WRITE LOCK)을 적용
-- 이를 통해 한 트랜잭션이 이 Ticket를 읽고 수정하는 동안 다른 트랜잭션이 접근하지 못하게 하여 동시성 문제를 방지하고, 데이터의 무결성을 유지
+- 분산 서버 환경에서 티켓 예약 시 발생할 수 있는 동시성 문제를 방지하기 위해 Redis Lua Script 사용
+- 동시에 예약 요청이 들어와도 티켓 수 감소 연산의 정합성 유지
+
 
 <br/>
 
