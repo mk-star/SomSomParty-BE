@@ -55,6 +55,8 @@
 - 수평 확장을 통해 예약 트래픽 급증 상황에도 유연하게 대응
 - 데이터 유실을 최소화하여 안정적이고 신뢰성 있는 예약 서비스 제공
 
+<br/>
+
 ### Redis Lua Script 적용
 ```java
 local stock = redis.call('GET', KEYS[1])
