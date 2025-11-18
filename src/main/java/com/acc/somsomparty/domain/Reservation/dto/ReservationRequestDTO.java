@@ -5,7 +5,6 @@ import lombok.Builder;
 @Builder
 public record ReservationRequestDTO(
         Long userId,
-        Long festivalId,
         Long ticketId)
 {
 }

@@ -3,7 +3,8 @@ package com.acc.somsomparty.domain.Reservation.converter;
 import com.acc.somsomparty.domain.Festival.converter.FestivalConverter;
 import com.acc.somsomparty.domain.Reservation.dto.ReservationResponseDTO;
 import com.acc.somsomparty.domain.Reservation.entity.Reservation;
-import com.acc.somsomparty.domain.Reservation.kafka.event.ReservationEvent;
+import com.acc.somsomparty.domain.Reservation.enums.ReservationStatus;
+import com.acc.somsomparty.domain.Reservation.listener.ReservationEvent;
 import com.acc.somsomparty.domain.Ticket.entity.Ticket;
 
 import java.time.LocalDate;
@@ -31,8 +32,9 @@ public class ReservationConverter {
     public static Reservation toReservation(ReservationEvent event) {
         return Reservation.builder()
                 .reservationDate(LocalDate.now())
-                //.user(user)
+                .userId(event.userId())
                 .ticketId(event.ticketId())
+                .status(ReservationStatus.PENDING)
                 .build();
     }
 

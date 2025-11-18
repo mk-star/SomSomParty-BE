@@ -31,35 +31,22 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-	implementation 'org.springframework.boot:spring-boot-starter-websocket'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	// 카프카
-	implementation 'org.springframework.kafka:spring-kafka'
-
-	// 테스트 컨테이너
-	testImplementation 'org.testcontainers:testcontainers:1.19.0'
 	testImplementation 'org.testcontainers:junit-jupiter:1.16.2'
-	testImplementation 'org.testcontainers:kafka:1.19.0'
 	// redis
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-	//jackson
-	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.18.1'
-
-	implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
-	implementation 'org.springframework.boot:spring-boot-starter-webflux'
-	implementation "org.redisson:redisson-spring-boot-starter:3.40.2"
-
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
-	implementation 'io.micrometer:micrometer-registry-prometheus'
 
-	implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.2.0'
-	implementation 'org.springframework.boot:spring-boot-starter-aop'
-	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-amqp'
+	implementation 'org.springframework.retry:spring-retry'
+	implementation 'com.slack.api:slack-api-client:1.30.0'
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
 }
 
 tasks.named('test') {

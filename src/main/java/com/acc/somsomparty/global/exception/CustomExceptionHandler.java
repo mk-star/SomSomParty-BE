@@ -1,5 +1,6 @@
 package com.acc.somsomparty.global.exception;
 
+import org.springframework.amqp.AmqpException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -32,6 +33,22 @@ public class CustomExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+    /**
+     * Producer가 3번의 재시도를 모두 실패했을 때 (네트워크/연결 오류)
+     * 이 핸들러가 AmqpException을 캐치합니다.
+     */
+    @ExceptionHandler(AmqpException.class)
+    protected ResponseEntity<ErrorResponseEntity> handleAmqpException(AmqpException e) {
+
+        ErrorResponseEntity errorResponse = ErrorResponseEntity.builder()
+                .status(HttpStatus.SERVICE_UNAVAILABLE.value()) // 503 (서비스 일시 장애)
+                .message("일시적인 네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.") // 2. 사용자 친화적 메시지
+                .errors(Map.of("error", "RabbitMQ connection failed after 3 retries")) // 3. (선택) 개발자용 로그
+                .build();
+
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errorResponse);
     }
 
     @ExceptionHandler(Exception.class)

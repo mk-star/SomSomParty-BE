@@ -1,9 +1,7 @@
 package com.acc.somsomparty.domain.Reservation.controller;
 
 import com.acc.somsomparty.domain.Reservation.dto.ReservationRequestDTO;
-import com.acc.somsomparty.domain.Reservation.dto.ReservationResponseDTO;
 import com.acc.somsomparty.domain.Reservation.service.ReservationCommandService;
-import com.acc.somsomparty.domain.Reservation.service.ReservationQueryService;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -29,7 +27,7 @@ public class ReservationController {
     @Operation(summary = "예약하기", description = "사용자 정보와 예약 날짜로 예약합니다.")
     @PostMapping("")
     public ResponseEntity<String> makeReservation(@RequestBody ReservationRequestDTO request) {
-        reservationCommandService.reserve(request);
+        reservationCommandService.requestReservation(request);
         //return new ResponseEntity<>(reservationCommandService.reserve(request), HttpStatus.OK);
         return new ResponseEntity<>("예약이 완료되었습니다.", HttpStatus.OK);
     }

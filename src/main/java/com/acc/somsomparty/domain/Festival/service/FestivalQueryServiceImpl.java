@@ -33,12 +33,17 @@ public class FestivalQueryServiceImpl implements FestivalQueryService {
     public FestivalResponseDTO.FestivalPreViewListDTO getFestivalList(Long lastId, int limit) {
         List<Festival> result;
         PageRequest pageRequest = PageRequest.of(0, limit + 1);
+
         if (lastId.equals(0L)) {
+            // 첫 페이지 조회
             result = festivalRepository.findAllByOrderByCreatedAtDesc(pageRequest).getContent();
         }
         else {
-            Festival festival = festivalRepository.findById(lastId).orElseThrow(() -> new CustomException(ErrorCode.FESTIVAL_NOT_FOUND));
-            result = festivalRepository.findByCreatedAtLessThanOrderByCreatedAtDesc(festival.getCreatedAt(), pageRequest).getContent();
+            // 두 번째 페이지부터
+            Festival lastFestival = festivalRepository.findById(lastId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.FESTIVAL_NOT_FOUND));
+
+            result = festivalRepository.findNextPage(lastFestival.getCreatedAt(), lastId, pageRequest);
         }
         return generateFestivalPreviewListDTO(result, limit);
     }
@@ -106,11 +111,14 @@ public class FestivalQueryServiceImpl implements FestivalQueryService {
 
     private FestivalResponseDTO.FestivalPreViewListDTO generateFestivalPreviewListDTO(List<Festival> festivals, int limit) {
         boolean hasNext = festivals.size() > limit;
+        List<Festival> content = hasNext ? festivals.subList(0, limit) : festivals;
+
         Long lastId = null;
-        if (hasNext) {
-            festivals = festivals.subList(0, festivals.size() - 1); // 마지막 항목 제외
-            lastId = festivals.get(festivals.size() - 1).getId(); // 마지막 항목의 ID를 커서로 설정
+        if (!content.isEmpty()) {
+            // content의 마지막 항목 ID를 커서로 설정
+            lastId = content.get(content.size() - 1).getId();
         }
+
         List<FestivalResponseDTO.FestivalPreViewDTO> list = festivals
                 .stream()
                 .map(FestivalConverter::festivalPreViewDTO)
